@@ -31,7 +31,7 @@ def setup_logging():
 def main(args):
     setup_logging()
 
-    logging.info("========== KMEANS – MODELO DO ARTIGO ==========")
+    logging.info("========== KMEANS ==========")
     logging.info(f"Pontos totais : {N_POINTS}")
     logging.info(f"Dimensões    : {DIMENSIONS}")
     logging.info(f"Clusters (K) : {K}")
@@ -41,7 +41,6 @@ def main(args):
 
     points_per_fragment = N_POINTS // N_FRAGMENTS
 
-    # Inicialização dos centróides (broadcast)
     np.random.seed(SEED)
     centroids = np.random.random((K, DIMENSIONS)).astype(np.float64)
 
