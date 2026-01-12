@@ -1,13 +1,14 @@
 import time
 import argparse
+import logging
 import numpy as np
 import parsl
-import logging
+
 from config import gen_config
 from apps import kmeans_fragment, reduce_and_update
 
-N_POINTS = 131_072_000
-#N_POINTS = 2_000_000
+# === PARÂMETROS ===
+N_POINTS = 131_072_000      
 DIMENSIONS = 100
 K = 1000
 N_FRAGMENTS = 1024
@@ -21,59 +22,61 @@ def setup_logging():
         datefmt="%Y-%m-%d %H:%M:%S",
         force=True
     )
-
     logging.getLogger("parsl").setLevel(logging.WARNING)
     logging.getLogger("parsl.dataflow").setLevel(logging.WARNING)
     logging.getLogger("parsl.executors").setLevel(logging.WARNING)
     logging.getLogger("parsl.providers").setLevel(logging.WARNING)
     logging.getLogger("parsl.jobs").setLevel(logging.WARNING)
     logging.getLogger("parsl").propagate = False
-  
 def main(args):
-
     setup_logging()
-    logging.info("\n========== KMEANS ==========")
+
+    logging.info("========== KMEANS – MODELO DO ARTIGO ==========")
     logging.info(f"Pontos totais : {N_POINTS}")
     logging.info(f"Dimensões    : {DIMENSIONS}")
-    logging.info(f"Clusters     : {K}")
+    logging.info(f"Clusters (K) : {K}")
     logging.info(f"Fragmentos   : {N_FRAGMENTS}")
     logging.info(f"Iterações    : {ITERATIONS}")
-    logging.info("==============================================\n")
+    logging.info("==============================================")
 
     points_per_fragment = N_POINTS // N_FRAGMENTS
 
+    # Inicialização dos centróides (broadcast)
     np.random.seed(SEED)
-    fragments = []
-
-    logging.info("[MAIN] Gerando dataset fixo...")
-    for i in range(N_FRAGMENTS):
-        pts = np.random.random(
-            (points_per_fragment, DIMENSIONS)
-        ).astype(np.float64)
-        fragments.append(pts)
-
     centroids = np.random.random((K, DIMENSIONS)).astype(np.float64)
 
     start_total = time.time()
 
     for it in range(ITERATIONS):
-        logging.info(f"\n--- ITERAÇÃO {it+1}/{ITERATIONS} ---")
+        logging.info(f"--- ITERAÇÃO {it + 1}/{ITERATIONS} ---")
         iter_start = time.time()
 
         futures = []
-        for i, pts in enumerate(fragments):
+
+        for frag_id in range(N_FRAGMENTS):
             futures.append(
-                kmeans_fragment(pts, centroids)
+                kmeans_fragment(
+                    fragment_id=SEED + frag_id + it * 100_000,
+                    points_per_fragment=points_per_fragment,
+                    dimensions=DIMENSIONS,
+                    centroids=centroids
+                )
             )
 
+        logging.info("[MAIN] Redução global e atualização dos centróides...")
         centroids = reduce_and_update(centroids, *futures).result()
 
-        logging.info(f"[MAIN] Iteração {it+1} finalizada em {time.time()-iter_start:.2f}s")
+        logging.info(
+            f"[MAIN] Iteração {it + 1} concluída em "
+            f"{time.time() - iter_start:.2f} s"
+        )
 
-    logging.info("\n========== FIM ==========")
-    logging.info(f"Tempo total: {time.time() - start_total:.2f} s")
-    logging.info("========================\n")
-  
+    logging.info("========== FIM ==========")
+    logging.info(
+        f"Tempo total (10 iterações): "
+        f"{time.time() - start_total:.2f} s"
+    )
+    
     parsl.dfk().cleanup()
 
 
