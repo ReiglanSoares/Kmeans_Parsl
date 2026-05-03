@@ -8,10 +8,10 @@ from config import gen_config
 from apps import kmeans_fragment, reduce_and_update
 
 # === PARÂMETROS ===
-N_POINTS = 131_072_000      
+N_POINTS = 132_000_000      
 DIMENSIONS = 100
 K = 1000
-N_FRAGMENTS = 1024
+N_FRAGMENTS = 1056
 ITERATIONS = 10
 SEED = 42
 
